@@ -1,0 +1,23 @@
+{
+  "name": "euclidstellar",
+  "version": "1.0.1",
+  "description": "",
+  "main": "index.js",
+  "bin": {
+    "euclid": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "fs-extra": "^11.2.0"
+  },
+  "author": "Gaurav Singh | @euclidstellar",
+  "license": "ISC",
+  "keywords": [
+    "nodejs",
+    "template",
+    "generator",
+    "backend"
+  ]
+}
