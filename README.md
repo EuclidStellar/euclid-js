@@ -44,8 +44,7 @@ my-project-name/
 │   │   └── index.js
 |   ├── utils
 |   |   └── jwt.js
-│   └── services
-|   
+│   └── services 
 └── tests
 ```
 
