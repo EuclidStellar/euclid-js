@@ -42,7 +42,9 @@ my-project-name/
 │   ├── models
 │   ├── routes
 │   │   └── index.js
-│   └── services
+|   ├── utils
+|   |   └── jwt.js
+│   └── services 
 └── tests
 ```
 
@@ -52,6 +54,7 @@ my-project-name/
 - `src/routes`: Folder for your routes.
 - `src/services`: Folder for your services.
 - `tests`: Folder for your tests.
+- `jwt.js`: Script for handling generation and verification of Json Web Tokens.
 
 ## Template Code
 

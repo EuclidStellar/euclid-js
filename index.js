@@ -20,12 +20,45 @@ const folders = [
   'src/models',
   'src/routes',
   'src/services',
+  'src/utils',
   'tests'
 ];
 
 // Template files content
 const files = {
+  'src/utils/jwt.js':`const jwt = require('jsonwebtoken');
+
+const generateToken = (user) => {
+  return jwt.sign(
+    { id: user.id, username: user.username },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN
+    }
+  );
+};
+
+const verifyToken = (token) => {
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    return null;
+  }
+};
+
+module.exports = { generateToken, verifyToken };
+`,
   'README.md': '# Project Title\n\nA brief description of what this project does and who it\'s for',
+  '.env':'JWT_SECRET="" \nJWT_EXPIRES_IN=""',
+  '.env.example':`# JWT Secret Key
+# Replace 'yourSecretKey' with a strong, random secret key
+JWT_SECRET=yourSecretKey
+
+# JWT Token Expiration
+# Set the duration for which the JWT token is valid
+# Examples: '1h' for 1 hour, '7d' for 7 days, '30m' for 30 minutes
+JWT_EXPIRES_IN=1h
+`,
   'package.json': `{
   "name": "${projectName}",
   "version": "1.0.0",
@@ -53,6 +86,8 @@ const files = {
 }`,
   'index.js': `const express = require('express');
 const app = express();
+const env = require('dotenv')
+env.config()
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
