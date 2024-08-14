@@ -26,25 +26,48 @@ const folders = [
 
 // Template files content
 const files = {
-  'src/utils/jwt.js':`const jwt = require('jsonwebtoken');
+  'src/utils/jwt.js':`const jwt = require("jsonwebtoken");
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRY = process.env.JWT_EXPIRES_IN;
 
 const generateToken = (user) => {
-  return jwt.sign(
-    { id: user.id, username: user.username },
-    process.env.JWT_SECRET,
-    {
-      expiresIn: process.env.JWT_EXPIRES_IN
-    }
-  );
-};
-
-const verifyToken = (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET);
+    return jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, {
+      expiresIn: JWT_EXPIRY,
+    });
   } catch (error) {
+    console.error("Error while generating JWT token:", error.message);
     return null;
   }
 };
+
+const verifyToken = (req, res, next) => {
+  // Extract token from Authorization header
+  const token = req?.headers?.authorization?.split(' ')[1]; // Extract token after "Bearer "
+
+  if (!token) {
+    return res.status(401).json({ message: "Authorization denied" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = {
+      id: decoded.data.id,
+      username: decoded.data.username
+    }
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error("Error while decoding JWT token:", error.message);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: "Invalid token" });
+    } else if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: "Token expired" });
+    }
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 
 module.exports = { generateToken, verifyToken };
 `,
