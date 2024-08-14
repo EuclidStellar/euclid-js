@@ -26,7 +26,7 @@ const folders = [
 
 // Template files content
 const files = {
-  'src/utils/jwt.js':`const jwt = require('jsonwebtoken');
+  'src/utils/jwt.js': `const jwt = require('jsonwebtoken');
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -48,9 +48,48 @@ const verifyToken = (token) => {
 
 module.exports = { generateToken, verifyToken };
 `,
+  'src/models/model.js': `const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+const UserSchema = new mongoose.Schema({
+  username: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  password: {
+    type: String,
+    required: true
+  }
+});
+
+// Hash the password before saving the user
+UserSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+module.exports = mongoose.model('User', UserSchema);
+`,
   'README.md': '# Project Title\n\nA brief description of what this project does and who it\'s for',
-  '.env':'JWT_SECRET="" \nJWT_EXPIRES_IN=""',
-  '.env.example':`# JWT Secret Key
+  '.env': 'MONGO_URI="mongodb://localhost:27017/yourDatabaseName"\nJWT_SECRET=""\nJWT_EXPIRES_IN=""',
+  '.env.example': `# MongoDB URI
+# Replace 'yourDatabaseName' with your database name
+MONGO_URI=mongodb://localhost:27017/yourDatabaseName
+
+# JWT Secret Key
 # Replace 'yourSecretKey' with a strong, random secret key
 JWT_SECRET=yourSecretKey
 
