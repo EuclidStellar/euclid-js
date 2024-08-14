@@ -104,7 +104,6 @@ const authorize = (req, res, next) => {
 
 module.exports = authorize;
 `,
-  'README.md': '# Project Title\n\nA brief description of what this project does and who it\'s for',
   '.env': `MONGO_URI="mongodb://localhost:27017/yourDatabaseName"
 JWT_SECRET=""
 JWT_EXPIRES_IN=""`,
