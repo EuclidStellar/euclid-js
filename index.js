@@ -149,8 +149,8 @@ JWT_EXPIRES_IN=1h
 }`,
   'index.js': `const express = require('express');
 const app = express();
-const env = require('dotenv')
-env.config()
+const env = require('dotenv');
+env.config();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
