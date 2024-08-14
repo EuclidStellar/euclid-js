@@ -1,7 +1,3 @@
-Sure, here’s an updated version of the README with a section that includes a Markdown example of using the CLI:
-
----
-
 # euclid-js | Node.js Backend Generator
 
 Euclid is a CLI tool designed to streamline the creation of a Node.js backend project. It generates a well-structured project folder with best practices, installs necessary dependencies, and provides template code to help you start quickly.
