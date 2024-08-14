@@ -1,56 +1,115 @@
 #!/usr/bin/env node
 
-import fs from 'fs-extra';
-import path from 'path';
-import { exec } from 'child_process';
-import inquirer from 'inquirer';
-import chalk from 'chalk';
+import fs from "fs-extra";
+import path from "path";
+import { execSync } from "child_process";
+import inquirer from "inquirer";
+import chalk from "chalk";
 
 const welcomeMessage = () => {
-  console.log(chalk.cyan.bold(`
+  console.log(
+    chalk.cyan.bold(`
   ==================================================
   =                                                =
   =                  EUCLID-JS                     =
   =           Made for Lazy People Like me         =
   =                                                =
   ==================================================
-  `));
-  console.log(chalk.green('Developed by: Gaurav Singh | @euclidstellar'));
-  console.log(chalk.green('GitHub: https://github.com/euclidstellar'));
-  console.log(chalk.green('npmjs:  http://npmjs.com/package/euclidstellar'));
+  `)
+  );
+  console.log(chalk.green("Developed by: Gaurav Singh | @euclidstellar"));
+  console.log(chalk.green("GitHub: https://github.com/euclidstellar"));
+  console.log(chalk.green("npmjs:  http://npmjs.com/package/euclidstellar"));
   console.log();
+};
+
+const validateUrl = (url) => {
+  try {
+    new URL(url);
+    return true;
+  } catch (error) {
+    return false;
+  }
 };
 
 const promptUser = async () => {
   const answers = await inquirer.prompt([
     {
-      type: 'input',
-      name: 'projectName',
-      message: 'Enter the project name:',
-      validate: (input) => input ? true : 'Project name cannot be empty',
+      type: "input",
+      name: "projectName",
+      message: "Enter the project name:",
+      validate: (input) => (input ? true : "Project name cannot be empty"),
     },
     {
-      type: 'confirm',
-      name: 'generateAuth',
-      message: 'Do you want to generate the auth part?',
+      type: "input",
+      name: "port",
+      message: "Enter the port number:",
+      default: 3000,
+      validate: (input) =>
+        !isNaN(input) && input > 0
+          ? true
+          : "Port number must be a positive number",
+    },
+    {
+      type: "confirm",
+      name: "generateAuth",
+      message: "Do you want to generate the JWT authorization?",
       default: false,
     },
+    {
+      type: "input",
+      name: "jwtSecret",
+      message: "Enter JWT Secret:",
+      when: (answers) => answers.generateAuth,
+      validate: (input) => (input ? true : "JWT Secret cannot be empty"),
+    },
+    {
+      type: "input",
+      name: "jwtExpiresIn",
+      message: "Enter JWT Expiry Time (e.g., 1h):",
+      when: (answers) => answers.generateAuth,
+      validate: (input) => (input ? true : "JWT Expiry Time cannot be empty"),
+    },
+    {
+      type: "input",
+      name: "mongodbUrl",
+      message: "Enter MongoDB URL:",
+      default: "mongodb://localhost:27017/yourDatabaseName",
+      validate: (input) => (input ? true : "MongoDB URL cannot be empty"),
+    },
+    {
+      type: "confirm",
+      name: "initGit",
+      message:
+        "Do you want to initialize a Git repository and commit the initial files?",
+      default: false,
+    },
+    {
+      type: "input",
+      name: "gitRepoUrl",
+      message: "Enter the Git repository URL:",
+      default: 'https://github.com/User_Name/Repo_Name.git',
+      when: (answers) => answers.initGit,
+      validate: (input) =>
+        validateUrl(input) ? true : "Git repository URL is invalid",
+    },
   ]);
+
   return answers;
 };
 
-const createFolders = (projectPath, generateAuth) => {
+const createFolders = async (projectPath) => {
   const folders = [
-    'src',
-    'src/controllers',
-    'src/models',
-    'src/routes',
-    'src/services',
-    'src/utils',
-    'tests'
+    "src",
+    "src/controllers",
+    "src/models",
+    "src/routes",
+    "src/services",
+    "src/utils",
+    "tests",
   ];
 
-  folders.forEach(folder => {
+  folders.forEach((folder) => {
     const folderPath = path.join(projectPath, folder);
     if (!fs.existsSync(folderPath)) {
       fs.mkdirSync(folderPath, { recursive: true });
@@ -59,14 +118,19 @@ const createFolders = (projectPath, generateAuth) => {
   });
 };
 
-const createFiles = (projectPath, generateAuth) => {
+const createFiles = async (projectPath, answers) => {
+  let envContent = `PORT=${answers.port}\nMONGODB_URL="${answers.mongodbUrl || ""}"`;
+
+  if (answers.generateAuth) {
+    envContent += `\nJWT_SECRET="${answers.jwtSecret}"\nJWT_EXPIRES_IN="${answers.jwtExpiresIn}"`;
+  }
+
   const files = {
-    'README.md': '# Project Title\n\nA brief description of what this project does and who it\'s for',
-    '.env': `JWT_SECRET="" 
-JWT_EXPIRES_IN=""
-MONGODB_URL="mongodb://localhost:27017/yourDatabaseName"
-`,
-    '.env.example': `# JWT Secret Key
+    ".gitignore": ".env\nnode_modules",
+    "README.md":
+      "# Project Title\n\nA brief description of what this project does and who it's for",
+    ".env": envContent,
+    ".env.example": `# JWT Secret Key
 # Replace 'yourSecretKey' with a strong, random secret key
 JWT_SECRET=yourSecretKey
 
@@ -78,8 +142,8 @@ JWT_EXPIRES_IN=1h
 # Local MongoDB URL
 MONGODB_URL="mongodb://localhost:27017/yourDatabaseName"
 `,
-    'package.json': `{
-  "name": "PROJECT_NAME_PLACEHOLDER",
+    "package.json": `{
+  "name": "${answers.projectName}",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -106,7 +170,7 @@ MONGODB_URL="mongodb://localhost:27017/yourDatabaseName"
     "helmet": "^4.1.1"
   }
 }`,
-    'index.js': `const express = require('express');
+    "index.js": `const express = require('express');
 const app = express();
 const env = require('dotenv');
 env.config();
@@ -135,7 +199,7 @@ app.use('/api', routes);
 app.listen(port, () => {
   console.log(\`Server is running on port \${port}\`);
 });`,
-    'src/routes/index.js': `const express = require('express');
+    "src/routes/index.js": `const express = require('express');
 const router = express.Router();
 
 // Define your routes here
@@ -146,8 +210,8 @@ router.get('/', (req, res) => {
 module.exports = router;`,
   };
 
-  if (generateAuth) {
-    files['src/utils/jwt.js'] = `const jwt = require("jsonwebtoken");
+  if (answers.generateAuth) {
+    files["src/utils/jwt.js"] = `const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRY = process.env.JWT_EXPIRES_IN;
 
@@ -190,7 +254,7 @@ const verifyToken = (req, res, next) => {
 
 module.exports = { generateToken, verifyToken };
 `;
-    files['src/models/model.js'] = `const mongoose = require('mongoose');
+    files["src/models/model.js"] = `const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
@@ -236,59 +300,104 @@ module.exports = User;
 `;
   }
 
-  Object.keys(files).forEach(filePath => {
+  Object.keys(files).forEach((filePath) => {
     const absolutePath = path.join(projectPath, filePath);
-    const content = files[filePath].replace('PROJECT_NAME_PLACEHOLDER', path.basename(projectPath));
+    const content = files[filePath].replace(
+      "PROJECT_NAME_PLACEHOLDER",
+      path.basename(projectPath)
+    );
     fs.outputFileSync(absolutePath, content);
     console.log(chalk.yellow(`File created: ${absolutePath}`));
   });
 };
 
+const initializeGit = async (projectPath, answers) => {
+  try {
+    console.log(chalk.yellow("Initializing Git repository..."));
+    execSync("git init", { cwd: projectPath });
+    console.log(chalk.yellow("Git repository initialized."));
+
+    console.log(chalk.yellow("Adding all files to the repository..."));
+    execSync("git add .", { cwd: projectPath });
+
+    console.log(chalk.yellow("Committing initial files..."));
+    execSync('git commit -m "Initial commit"', { cwd: projectPath });
+
+    if (answers.gitRepoUrl) {
+      console.log(
+        chalk.yellow(`Adding remote repository ${answers.gitRepoUrl}...`)
+      );
+      execSync(`git remote add origin ${answers.gitRepoUrl}`, {
+        cwd: projectPath,
+      });
+
+      console.log(chalk.yellow("Pushing to remote repository..."));
+      execSync("git push -u origin master", { cwd: projectPath });
+    }
+
+    console.log(chalk.yellow("Git repository setup complete."));
+  } catch (error) {
+    console.error(
+      chalk.red("Error initializing Git repository:"),
+      error.message
+    );
+  }
+};
+
 const main = async () => {
   welcomeMessage();
-  
-  const { projectName, generateAuth } = await promptUser();
+
+  const answers = await promptUser();
+  const { projectName } = answers;
+
   const projectPath = path.join(process.cwd(), projectName);
 
   if (fs.existsSync(projectPath)) {
-    console.error(chalk.red(`Folder ${projectName} already exists. Choose a different project name.`));
+    console.error(
+      chalk.red(
+        `Folder ${projectName} already exists. Choose a different project name.`
+      )
+    );
     process.exit(1);
   }
 
   fs.mkdirSync(projectPath);
   console.log(chalk.green(`Project folder created: ${projectPath}`));
 
-  createFolders(projectPath, generateAuth);
-  createFiles(projectPath, generateAuth);
+  await createFolders(projectPath);
+  await createFiles(projectPath, answers);
 
-  // Install dependencies
-  console.log(chalk.blue('Installing dependencies...'));
-  exec(`cd ${projectPath} && npm install`, (err, stdout, stderr) => {
+  console.log(chalk.blue("Installing dependencies..."));
+  execSync(`cd ${projectPath} && npm install`, (err, stdout, stderr) => {
     if (err) {
       console.error(chalk.red(`Error installing dependencies: ${err.message}`));
       return;
     }
     console.log(stdout);
     console.error(stderr);
-
-const displayFinalMessage = () => {
-  console.log(chalk.cyan.bold(`
-  =====================================================
-  =                                                   =
-  =   "You are the distance between the last          =
-  =    metaphor of the verse and the full stop..."    =
-  =                ~ Gaurav Singh                     =
-  =                                                   =
-  =====================================================
-  `));
-};
-    displayFinalMessage();
-    console.log(chalk.green('Dependencies installed successfully , Happy Coding!'));
+    console.log(
+      chalk.green("Dependencies installed successfully. Happy Coding!")
+    );
   });
+
+  if (answers.initGit) {
+    await initializeGit(projectPath, answers);
+  }
+
+  const displayFinalMessage = async () => {
+    console.log(
+      chalk.cyan.bold(`
+    =====================================================
+    =                                                   =
+    =   "You are the distance between the last          =
+    =    metaphor of the verse and the full stop..."    =
+    =                ~ Gaurav Singh                     =
+    =                                                   =
+    =====================================================
+    `)
+    );
+  };
+  await displayFinalMessage();
 };
 
 main();
-
-
-
-
