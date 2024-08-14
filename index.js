@@ -26,7 +26,7 @@ const folders = [
 
 // Template files content
 const files = {
-  'src/utils/jwt.js':`const jwt = require("jsonwebtoken");
+  'src/utils/jwt.js': `const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRY = process.env.JWT_EXPIRES_IN;
 
@@ -42,7 +42,6 @@ const generateToken = (user) => {
 };
 
 const verifyToken = (req, res, next) => {
-  // Extract token from Authorization header
   const token = req?.headers?.authorization?.split(' ')[1]; // Extract token after "Bearer "
 
   if (!token) {
@@ -68,12 +67,14 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-
 module.exports = { generateToken, verifyToken };
 `,
   'README.md': '# Project Title\n\nA brief description of what this project does and who it\'s for',
-  '.env':'JWT_SECRET="" \nJWT_EXPIRES_IN=""',
-  '.env.example':`# JWT Secret Key
+  '.env': `JWT_SECRET="" 
+JWT_EXPIRES_IN=""
+MONGODB_URL="mongodb://localhost:27017/yourDatabaseName"
+`,
+  '.env.example': `# JWT Secret Key
 # Replace 'yourSecretKey' with a strong, random secret key
 JWT_SECRET=yourSecretKey
 
@@ -81,6 +82,9 @@ JWT_SECRET=yourSecretKey
 # Set the duration for which the JWT token is valid
 # Examples: '1h' for 1 hour, '7d' for 7 days, '30m' for 30 minutes
 JWT_EXPIRES_IN=1h
+
+# Local MongoDB URL
+MONGODB_URL="mongodb://localhost:27017/yourDatabaseName"
 `,
   'package.json': `{
   "name": "${projectName}",
@@ -109,12 +113,23 @@ JWT_EXPIRES_IN=1h
 }`,
   'index.js': `const express = require('express');
 const app = express();
-const env = require('dotenv')
-env.config()
+const env = require('dotenv');
+env.config();
+const mongoose = require('mongoose');
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URL, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log('Connected to MongoDB');
+}).catch((error) => {
+  console.error('Error connecting to MongoDB:', error.message);
+});
 
 // Import routes
 const routes = require('./src/routes');
@@ -133,7 +148,51 @@ router.get('/', (req, res) => {
   res.send('Welcome to the API');
 });
 
-module.exports = router;`
+module.exports = router;`,
+  'src/models/model.js': `const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+const userSchema = new mongoose.Schema({
+  username: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  password: {
+    type: String,
+    required: true
+  }
+});
+
+// Hash password before saving the user
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
+    return next();
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Method to check if password is correct
+userSchema.methods.isPasswordValid = async function (password) {
+  return await bcrypt.compare(password, this.password);
+};
+
+const User = mongoose.model('User', userSchema);
+
+module.exports = User;
+`
 };
 
 // Function to create folders
