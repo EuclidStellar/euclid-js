@@ -21,6 +21,7 @@ const folders = [
   'src/routes',
   'src/services',
   'src/utils',
+  'src/middleware',
   'tests'
 ];
 
@@ -83,6 +84,26 @@ UserSchema.pre('save', async function(next) {
 
 module.exports = mongoose.model('User', UserSchema);
 `,
+  'src/middleware/authMiddleware.js': `const jwt = require('jsonwebtoken');
+
+const authorize = (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1]; // Extract token from header
+
+  if (!token) {
+    return res.status(403).json({ message: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; // Attach user information to request object
+    next();
+  } catch (err) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+module.exports = authorize;
+`,
   'README.md': '# Project Title\n\nA brief description of what this project does and who it\'s for',
   '.env': 'MONGO_URI="mongodb://localhost:27017/yourDatabaseName"\nJWT_SECRET=""\nJWT_EXPIRES_IN=""',
   '.env.example': `# MongoDB URI
@@ -105,7 +126,8 @@ JWT_EXPIRES_IN=1h
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \\"Error: no test specified\\" && exit 1"
+    "test": "echo \\"Error: no test specified\\" && exit 1",
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "express": "^4.17.1",
@@ -143,10 +165,16 @@ app.listen(port, () => {
 });`,
   'src/routes/index.js': `const express = require('express');
 const router = express.Router();
+const authorize = require('../middleware/authMiddleware');
 
 // Define your routes here
 router.get('/', (req, res) => {
   res.send('Welcome to the API');
+});
+
+// Protected route
+router.get('/protected', authorize, (req, res) => {
+  res.send(\`Hello \${req.user.username}, you have access to this protected route.\`);
 });
 
 module.exports = router;`
