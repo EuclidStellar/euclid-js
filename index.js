@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 
-import fs from 'fs-extra';
 import path from 'path';
 import { exec } from 'child_process';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
+
+let fs;
+try {
+  fs = await import('fs-extra');
+} catch (error) {
+  console.error(chalk.red('Error: fs-extra is not installed globally. Please run "npm install -g fs-extra" and try again.'));
+  process.exit(1);
+}
 
 const welcomeMessage = () => {
   console.log(chalk.cyan.bold(`
   ==================================================
   =                                                =
   =                  EUCLID-JS                     =
-  =            Gaurav was in mood of anxiety       =
-  =            while making this !                 =
   =                                                =
   ==================================================
   `));
@@ -241,59 +246,41 @@ module.exports = User;
     const absolutePath = path.join(projectPath, filePath);
     const content = files[filePath].replace('PROJECT_NAME_PLACEHOLDER', path.basename(projectPath));
     fs.outputFileSync(absolutePath, content);
-    console.log(chalk.yellow(`File created: ${absolutePath}`));
+    console.log(chalk.green(`File created: ${absolutePath}`));
+  });
+};
+
+const initializeGit = (projectPath) => {
+  exec('git init', { cwd: projectPath }, (error, stdout, stderr) => {
+    if (error) {
+      console.error(chalk.red('Error initializing Git repository:', error.message));
+      return;
+    }
+    if (stderr) {
+      console.error(chalk.red('Error initializing Git repository:', stderr));
+      return;
+    }
+    console.log(chalk.green(stdout));
+    console.log(chalk.green('Git repository initialized'));
   });
 };
 
 const main = async () => {
   welcomeMessage();
+  const answers = await promptUser();
+  const projectPath = path.join(process.cwd(), answers.projectName);
   
-  const { projectName, generateAuth } = await promptUser();
-  const projectPath = path.join(process.cwd(), projectName);
-
-  if (fs.existsSync(projectPath)) {
-    console.error(chalk.red(`Folder ${projectName} already exists. Choose a different project name.`));
-    process.exit(1);
+  if (!fs.existsSync(projectPath)) {
+    fs.mkdirSync(projectPath);
+    console.log(chalk.yellow(`Project folder created: ${projectPath}`));
   }
 
-  fs.mkdirSync(projectPath);
-  console.log(chalk.green(`Project folder created: ${projectPath}`));
-
-  createFolders(projectPath, generateAuth);
-  createFiles(projectPath, generateAuth);
-
-  // Install dependencies
-  console.log(chalk.blue('Installing dependencies...'));
-  exec(`cd ${projectPath} && npm install`, (err, stdout, stderr) => {
-    if (err) {
-      console.error(chalk.red(`Error installing dependencies: ${err.message}`));
-      return;
-    }
-    console.log(stdout);
-    console.error(stderr);
-
-const displayFinalMessage = () => {
-  console.log(chalk.cyan.bold(`
-  =====================================================
-  =                                                   =
-  =   "You are the distance between the last          =
-  =    metaphor of the verse and the full stop..."    =
-  =                ~ Gaurav Singh                     =
-  =                                                   =
-  =====================================================
-  `));
-};
-    displayFinalMessage();
-    console.log(chalk.green('Dependencies installed successfully , Happy Coding!'));
-  });
+  createFolders(projectPath, answers.generateAuth);
+  createFiles(projectPath, answers.generateAuth);
+  initializeGit(projectPath);
 };
 
-main();
-
-
-
-
-
-
-
-
+main().catch(error => {
+  console.error(chalk.red('Error:', error.message));
+  process.exit(1);
+});
