@@ -1,6 +1,6 @@
 {
   "name": "euclidstellar",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "A simple Node.js CLI to generate Node.js backend template",
   "main": "index.js",
   "scripts": {
