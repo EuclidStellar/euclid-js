@@ -1,14 +1,18 @@
+Sure, here’s an updated version of the README with a section that includes a Markdown example of using the CLI:
 
-# euclid-js | NodeJs backend generator
+---
 
-Euclid is a tool to generate a Node.js project template with best practices. It creates a project folder with a predefined structure, installs necessary dependencies, and provides template code to get you started quickly.
+# euclid-js | Node.js Backend Generator
+
+Euclid is a CLI tool designed to streamline the creation of a Node.js backend project. It generates a well-structured project folder with best practices, installs necessary dependencies, and provides template code to help you start quickly.
 
 ## Features
 
-- Generates a standard Node.js project structure.
-- Installs common dependencies for backend development.
-- Provides template code for `index.js` and routes.
-- Creates folders for controllers, models, routes, services, and tests.
+- **Generates a Standard Node.js Project Structure**: Quickly set up a consistent project layout.
+- **Installs Common Dependencies**: Automatically installs essential libraries and tools for backend development.
+- **Provides Template Code**: Includes base code for `index.js` and routes to jump-start your application.
+- **CLI Interaction**: Beautiful command-line interface for a smooth user experience.
+- **Optional Authentication Setup**: Choose to include authentication-related files and setup.
 
 ## Installation
 
@@ -23,17 +27,86 @@ npm install -g euclidstellar
 After installing the package globally, you can generate a new project by running the following command:
 
 ```bash
-euclid my-project-name
+euclid <project-name>
 ```
 
-Replace `my-project-name` with the desired name for your project. This command will create a folder with the specified project name and set up the project structure and dependencies.
+Replace `<project-name>` with your desired project name. This command will create a folder with the specified project name and set up the project structure and dependencies.
+
+### CLI Interaction
+
+When you run the CLI, you will interact with the following prompts:
+
+1. **Welcome Message**: Displays a welcome message with developer information and project details.
+2. **Project Name Prompt**: Asks for the name of the project.
+3. **Generate Auth Part**: Prompts whether to include authentication-related code.
+   - **Y**: Includes authentication setup and additional files.
+   - **N**: Only generates the basic project structure and core files.
+
+### Example CLI Interaction
+
+Here's an example of how the CLI might look when you run it:
+
+```bash
+$ euclid my-awesome-project
+
+  ==================================================
+  =                                                =
+  =                  EUCLID-JS                     =
+  =           A Project Generator CLI              =
+  =                                                =
+  ==================================================
+
+Developed by: Gaurav Singh | @euclidstellar
+GitHub: https://github.com/euclidstellar
+npmjs:  http://npmjs.com/package/euclidstellar
+
+Enter the project name: my-awesome-project
+
+Do you want to generate the auth part? (y/N): y
+
+Project folder created: /path/to/my-awesome-project
+Folder created: /path/to/my-awesome-project/src
+Folder created: /path/to/my-awesome-project/src/controllers
+Folder created: /path/to/my-awesome-project/src/models
+Folder created: /path/to/my-awesome-project/src/routes
+Folder created: /path/to/my-awesome-project/src/services
+Folder created: /path/to/my-awesome-project/src/utils
+Folder created: /path/to/my-awesome-project/tests
+File created: /path/to/my-awesome-project/README.md
+File created: /path/to/my-awesome-project/.env
+File created: /path/to/my-awesome-project/.env.example
+File created: /path/to/my-awesome-project/package.json
+File created: /path/to/my-awesome-project/index.js
+File created: /path/to/my-awesome-project/src/routes/index.js
+File created: /path/to/my-awesome-project/src/utils/jwt.js
+File created: /path/to/my-awesome-project/src/models/model.js
+
+Installing dependencies...
++ express@4.17.1
++ mongoose@5.10.9
++ dotenv@8.2.0
++ jsonwebtoken@8.5.1
++ bcryptjs@2.4.3
++ cors@2.8.5
++ body-parser@1.19.0
++ nodemon@2.0.4
++ winston@3.3.3
++ passport@0.4.1
++ multer@1.4.2
++ sequelize@6.3.5
++ helmet@4.1.1
+
+Dependencies installed successfully.
+
+You are the distance between the last metaphor of the verse and the full stop ~ Gaurav
+```
 
 ## Project Structure
 
 The generated project will have the following structure:
 
 ```
-my-project-name/
+<project-name>/
 ├── README.md
 ├── package.json
 ├── index.js
@@ -42,8 +115,8 @@ my-project-name/
 │   ├── models
 │   ├── routes
 │   │   └── index.js
-|   ├── utils
-|   |   └── jwt.js
+│   ├── utils
+│   │   └── jwt.js
 │   └── services 
 └── tests
 ```
@@ -54,7 +127,7 @@ my-project-name/
 - `src/routes`: Folder for your routes.
 - `src/services`: Folder for your services.
 - `tests`: Folder for your tests.
-- `jwt.js`: Script for handling generation and verification of Json Web Tokens.
+- `jwt.js`: Script for handling generation and verification of JSON Web Tokens (included if authentication setup is selected).
 
 ## Template Code
 
@@ -121,5 +194,8 @@ Contributions are welcome! Please open an issue or submit a pull request if you 
 
 ## License
 
-This project is licensed under the ISC License.
-```
+This project is licensed under the MIT License.
+
+---
+
+Feel free to adjust the content or formatting as needed! Let me know if you have any other requests or questions. 😊
