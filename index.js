@@ -1,32 +1,154 @@
 #!/usr/bin/env node
 
-const fs = require('fs-extra');
-const path = require('path');
-const { exec } = require('child_process');
+import fs from 'fs-extra';
+import path from 'path';
+import { exec } from 'child_process';
+import inquirer from 'inquirer';
+import chalk from 'chalk';
 
-const projectName = process.argv[2];
+const welcomeMessage = () => {
+  console.log(chalk.cyan.bold(`
+  ==================================================
+  =                                                =
+  =                  EUCLID-JS                     =
+  =            Gaurav was in mood of anxiety       =
+  =            while making this !                 =
+  =                                                =
+  ==================================================
+  `));
+  console.log(chalk.green('Developed by: Gaurav Singh | @euclidstellar'));
+  console.log(chalk.green('GitHub: https://github.com/euclidstellar'));
+  console.log(chalk.green('npmjs:  http://npmjs.com/package/euclidstellar'));
+  console.log();
+};
 
-if (!projectName) {
-  console.error('Please provide a project name.');
-  process.exit(1);
-}
+const promptUser = async () => {
+  const answers = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'projectName',
+      message: 'Enter the project name:',
+      validate: (input) => input ? true : 'Project name cannot be empty',
+    },
+    {
+      type: 'confirm',
+      name: 'generateAuth',
+      message: 'Do you want to generate the auth part?',
+      default: false,
+    },
+  ]);
+  return answers;
+};
 
-const projectPath = path.join(process.cwd(), projectName);
+const createFolders = (projectPath, generateAuth) => {
+  const folders = [
+    'src',
+    'src/controllers',
+    'src/models',
+    'src/routes',
+    'src/services',
+    'src/utils',
+    'tests'
+  ];
 
-// Folder structure to be created
-const folders = [
-  'src',
-  'src/controllers',
-  'src/models',
-  'src/routes',
-  'src/services',
-  'src/utils',
-  'tests'
-];
+  folders.forEach(folder => {
+    const folderPath = path.join(projectPath, folder);
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+      console.log(chalk.yellow(`Folder created: ${folderPath}`));
+    }
+  });
+};
 
-// Template files content
-const files = {
-  'src/utils/jwt.js': `const jwt = require("jsonwebtoken");
+const createFiles = (projectPath, generateAuth) => {
+  const files = {
+    'README.md': '# Project Title\n\nA brief description of what this project does and who it\'s for',
+    '.env': `JWT_SECRET="" 
+JWT_EXPIRES_IN=""
+MONGODB_URL="mongodb://localhost:27017/yourDatabaseName"
+`,
+    '.env.example': `# JWT Secret Key
+# Replace 'yourSecretKey' with a strong, random secret key
+JWT_SECRET=yourSecretKey
+
+# JWT Token Expiration
+# Set the duration for which the JWT token is valid
+# Examples: '1h' for 1 hour, '7d' for 7 days, '30m' for 30 minutes
+JWT_EXPIRES_IN=1h
+
+# Local MongoDB URL
+MONGODB_URL="mongodb://localhost:27017/yourDatabaseName"
+`,
+    'package.json': `{
+  "name": "PROJECT_NAME_PLACEHOLDER",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \\"Error: no test specified\\" && exit 1"
+  },
+  "bin": {
+    "euclid-cli": "./index.mjs"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "mongoose": "^5.10.9",
+    "dotenv": "^8.2.0",
+    "jsonwebtoken": "^8.5.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "body-parser": "^1.19.0",
+    "nodemon": "^2.0.4",
+    "winston": "^3.3.3",
+    "passport": "^0.4.1",
+    "multer": "^1.4.2",
+    "sequelize": "^6.3.5",
+    "helmet": "^4.1.1"
+  }
+}`,
+    'index.js': `const express = require('express');
+const app = express();
+const env = require('dotenv');
+env.config();
+const mongoose = require('mongoose');
+const port = process.env.PORT || 3000;
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URL, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log('Connected to MongoDB');
+}).catch((error) => {
+  console.error('Error connecting to MongoDB:', error.message);
+});
+
+// Import routes
+const routes = require('./src/routes');
+
+// Use routes
+app.use('/api', routes);
+
+app.listen(port, () => {
+  console.log(\`Server is running on port \${port}\`);
+});`,
+    'src/routes/index.js': `const express = require('express');
+const router = express.Router();
+
+// Define your routes here
+router.get('/', (req, res) => {
+  res.send('Welcome to the API');
+});
+
+module.exports = router;`,
+  };
+
+  if (generateAuth) {
+    files['src/utils/jwt.js'] = `const jwt = require("jsonwebtoken");
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRY = process.env.JWT_EXPIRES_IN;
 
@@ -68,88 +190,8 @@ const verifyToken = (req, res, next) => {
 };
 
 module.exports = { generateToken, verifyToken };
-`,
-  'README.md': '# Project Title\n\nA brief description of what this project does and who it\'s for',
-  '.env': `JWT_SECRET="" 
-JWT_EXPIRES_IN=""
-MONGODB_URL="mongodb://localhost:27017/yourDatabaseName"
-`,
-  '.env.example': `# JWT Secret Key
-# Replace 'yourSecretKey' with a strong, random secret key
-JWT_SECRET=yourSecretKey
-
-# JWT Token Expiration
-# Set the duration for which the JWT token is valid
-# Examples: '1h' for 1 hour, '7d' for 7 days, '30m' for 30 minutes
-JWT_EXPIRES_IN=1h
-
-# Local MongoDB URL
-MONGODB_URL="mongodb://localhost:27017/yourDatabaseName"
-`,
-  'package.json': `{
-  "name": "${projectName}",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js",
-    "test": "echo \\"Error: no test specified\\" && exit 1"
-  },
-  "dependencies": {
-    "express": "^4.17.1",
-    "mongoose": "^5.10.9",
-    "dotenv": "^8.2.0",
-    "jsonwebtoken": "^8.5.1",
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "body-parser": "^1.19.0",
-    "nodemon": "^2.0.4",
-    "winston": "^3.3.3",
-    "passport": "^0.4.1",
-    "multer": "^1.4.2",
-    "sequelize": "^6.3.5",
-    "helmet": "^4.1.1"
-  }
-}`,
-  'index.js': `const express = require('express');
-const app = express();
-const env = require('dotenv');
-env.config();
-const mongoose = require('mongoose');
-const port = process.env.PORT || 3000;
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URL, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => {
-  console.log('Connected to MongoDB');
-}).catch((error) => {
-  console.error('Error connecting to MongoDB:', error.message);
-});
-
-// Import routes
-const routes = require('./src/routes');
-
-// Use routes
-app.use('/api', routes);
-
-app.listen(port, () => {
-  console.log(\`Server is running on port \${port}\`);
-});`,
-  'src/routes/index.js': `const express = require('express');
-const router = express.Router();
-
-// Define your routes here
-router.get('/', (req, res) => {
-  res.send('Welcome to the API');
-});
-
-module.exports = router;`,
-  'src/models/model.js': `const mongoose = require('mongoose');
+`;
+    files['src/models/model.js'] = `const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
@@ -192,54 +234,66 @@ userSchema.methods.isPasswordValid = async function (password) {
 const User = mongoose.model('User', userSchema);
 
 module.exports = User;
-`
-};
+`;
+  }
 
-// Function to create folders
-function createFolders() {
-  folders.forEach(folder => {
-    const folderPath = path.join(projectPath, folder);
-    if (!fs.existsSync(folderPath)) {
-      fs.mkdirSync(folderPath, { recursive: true });
-      console.log(`Folder created: ${folderPath}`);
-    }
-  });
-}
-
-// Function to create files with template content
-function createFiles() {
   Object.keys(files).forEach(filePath => {
     const absolutePath = path.join(projectPath, filePath);
-    fs.outputFileSync(absolutePath, files[filePath]);
-    console.log(`File created: ${absolutePath}`);
+    const content = files[filePath].replace('PROJECT_NAME_PLACEHOLDER', path.basename(projectPath));
+    fs.outputFileSync(absolutePath, content);
+    console.log(chalk.yellow(`File created: ${absolutePath}`));
   });
-}
+};
 
-// Main function to generate template
-function generateTemplate() {
+const main = async () => {
+  welcomeMessage();
+  
+  const { projectName, generateAuth } = await promptUser();
+  const projectPath = path.join(process.cwd(), projectName);
+
   if (fs.existsSync(projectPath)) {
-    console.error(`Folder ${projectName} already exists. Choose a different project name.`);
+    console.error(chalk.red(`Folder ${projectName} already exists. Choose a different project name.`));
     process.exit(1);
   }
 
   fs.mkdirSync(projectPath);
-  console.log(`Project folder created: ${projectPath}`);
+  console.log(chalk.green(`Project folder created: ${projectPath}`));
 
-  createFolders();
-  createFiles();
+  createFolders(projectPath, generateAuth);
+  createFiles(projectPath, generateAuth);
 
   // Install dependencies
-  console.log('Installing dependencies...');
+  console.log(chalk.blue('Installing dependencies...'));
   exec(`cd ${projectPath} && npm install`, (err, stdout, stderr) => {
     if (err) {
-      console.error(`Error installing dependencies: ${err.message}`);
+      console.error(chalk.red(`Error installing dependencies: ${err.message}`));
       return;
     }
     console.log(stdout);
     console.error(stderr);
-    console.log('Dependencies installed successfully.');
-  });
-}
 
-// Execute the main function
-generateTemplate();
+const displayFinalMessage = () => {
+  console.log(chalk.cyan.bold(`
+  =====================================================
+  =                                                   =
+  =   "You are the distance between the last          =
+  =    metaphor of the verse and the full stop..."    =
+  =                ~ Gaurav Singh                     =
+  =                                                   =
+  =====================================================
+  `));
+};
+    displayFinalMessage();
+    console.log(chalk.green('Dependencies installed successfully , Happy Coding!'));
+  });
+};
+
+main();
+
+
+
+
+
+
+
+

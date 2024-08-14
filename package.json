@@ -1,16 +1,16 @@
+
+
 {
   "name": "euclidstellar",
-  "version": "1.0.4",
-  "description": "",
+  "version": "1.0.5",
+  "description": "A simple Node.js CLI to generate Node.js backend template",
   "main": "index.js",
-  "bin": {
-    "euclid": "./index.js"
-  },
   "scripts": {
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "dependencies": {
-    "fs-extra": "^11.2.0"
+  "bin": {
+    "euclid": "./index.js"
   },
   "author": "Gaurav Singh | @euclidstellar",
   "license": "ISC",
@@ -18,6 +18,10 @@
     "nodejs",
     "template",
     "generator",
-    "backend"
-  ]
+    "backend",
+    "cli",
+    "command-line"
+  ],
+  "type": "module"
 }
+
