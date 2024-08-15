@@ -72,10 +72,9 @@ const promptUser = async () => {
     },
     {
       type: "input",
-      name: "mongodbUrl",
-      message: "Enter MongoDB URL:",
-      default: "mongodb://localhost:27017/yourDatabaseName",
-      validate: (input) => (input ? true : "MongoDB URL cannot be empty"),
+      name: "mongodbName",
+      message: "Enter the MongoDB database name:",
+      validate: (input) => (input ? true : "Database name cannot be empty"),
     },
     {
       type: "confirm",
@@ -86,12 +85,17 @@ const promptUser = async () => {
     },
     {
       type: "input",
-      name: "gitRepoUrl",
-      message: "Enter the Git repository URL:",
-      default: 'https://github.com/User_Name/Repo_Name.git',
+      name: "gitUsername",
+      message: "Enter your GitHub username:",
       when: (answers) => answers.initGit,
-      validate: (input) =>
-        validateUrl(input) ? true : "Git repository URL is invalid",
+      validate: (input) => (input ? true : "GitHub username cannot be empty"),
+    },
+    {
+      type: "input",
+      name: "gitRepoName",
+      message: "Enter the GitHub repository name:",
+      when: (answers) => answers.initGit,
+      validate: (input) => (input ? true : "Repository name cannot be empty"),
     },
   ]);
 
@@ -119,7 +123,8 @@ const createFolders = async (projectPath) => {
 };
 
 const createFiles = async (projectPath, answers) => {
-  let envContent = `PORT=${answers.port}\nMONGODB_URL="${answers.mongodbUrl || ""}"`;
+  const mongodbUrl = `mongodb://localhost:27017/${answers.mongodbName}`;
+  let envContent = `PORT=${answers.port}\nMONGODB_URL="${mongodbUrl}"`;
 
   if (answers.generateAuth) {
     envContent += `\nJWT_SECRET="${answers.jwtSecret}"\nJWT_EXPIRES_IN="${answers.jwtExpiresIn}"`;
@@ -282,122 +287,189 @@ userSchema.pre('save', async function (next) {
 
   try {
     const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    const hashedPassword = await bcrypt.hash(this.password, salt);
+    this.password = hashedPassword;
     next();
   } catch (error) {
-    return next(error);
+    next(error);
   }
 });
 
-// Method to check if password is correct
-userSchema.methods.isPasswordValid = async function (password) {
-  return await bcrypt.compare(password, this.password);
-};
-
 const User = mongoose.model('User', userSchema);
 
-module.exports = User;
-`;
-  }
+module.exports = User;`;
+    files["src/controllers/authController.js"] = `const User = require('../models/model');
+const bcrypt = require('bcryptjs');
+const { generateToken } = require('../utils/jwt');
 
-  Object.keys(files).forEach((filePath) => {
-    const absolutePath = path.join(projectPath, filePath);
-    const content = files[filePath].replace(
-      "PROJECT_NAME_PLACEHOLDER",
-      path.basename(projectPath)
-    );
-    fs.outputFileSync(absolutePath, content);
-    console.log(chalk.yellow(`File created: ${absolutePath}`));
-  });
+const register = async (req, res) => {
+  const { username, email, password } = req.body;
+
+  try {
+    const user = new User({
+      username,
+      email,
+      password
+    });
+
+    const savedUser = await user.save();
+
+    const token = generateToken(savedUser);
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      token,
+      user: {
+        id: savedUser._id,
+        username: savedUser.username,
+        email: savedUser.email
+      }
+    });
+  } catch (error) {
+    console.error('Error while registering user:', error.message);
+    res.status(500).json({
+      message: 'Server error'
+    });
+  }
 };
 
-const initializeGit = async (projectPath, answers) => {
+const login = async (req, res) => {
+  const { username, password } = req.body;
+
   try {
-    console.log(chalk.yellow("Initializing Git repository..."));
-    execSync("git init", { cwd: projectPath });
-    console.log(chalk.yellow("Git repository initialized."));
+    const user = await User.findOne({ username });
 
-    console.log(chalk.yellow("Adding all files to the repository..."));
-    execSync("git add .", { cwd: projectPath });
-
-    console.log(chalk.yellow("Committing initial files..."));
-    execSync('git commit -m "Initial commit"', { cwd: projectPath });
-
-    if (answers.gitRepoUrl) {
-      console.log(
-        chalk.yellow(`Adding remote repository ${answers.gitRepoUrl}...`)
-      );
-      execSync(`git remote add origin ${answers.gitRepoUrl}`, {
-        cwd: projectPath,
-      });
-
-      console.log(chalk.yellow("Pushing to remote repository..."));
-      execSync("git push -u origin master", { cwd: projectPath });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    console.log(chalk.yellow("Git repository setup complete."));
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const token = generateToken(user);
+
+    res.status(200).json({
+      message: 'User logged in successfully',
+      token,
+      user: {
+        id: user._id,
+        username: user.username,
+        email: user.email
+      }
+    });
   } catch (error) {
-    console.error(
-      chalk.red("Error initializing Git repository:"),
-      error.message
-    );
+    console.error('Error while logging in:', error.message);
+    res.status(500).json({
+      message: 'Server error'
+    });
   }
 };
 
-const main = async () => {
+module.exports = { register, login };`;
+    files["src/routes/authRoutes.js"] = `const express = require('express');
+const router = express.Router();
+const { register, login } = require('../controllers/authController');
+
+// Register route
+router.post('/register', register);
+
+// Login route
+router.post('/login', login);
+
+module.exports = router;`;
+    files["src/routes/index.js"] = `const express = require('express');
+const router = express.Router();
+const authRoutes = require('./authRoutes');
+const { verifyToken } = require('../utils/jwt');
+
+// Define your routes here
+router.get('/', (req, res) => {
+  res.send('Welcome to the API');
+});
+
+router.use('/auth', authRoutes);
+
+router.get('/protected', verifyToken, (req, res) => {
+  res.status(200).json({
+    message: 'Protected route accessed successfully',
+    user: req.user,
+  });
+});
+
+module.exports = router;`;
+  }
+
+  for (const [fileName, content] of Object.entries(files)) {
+    const filePath = path.join(projectPath, fileName);
+    fs.writeFileSync(filePath, content);
+    console.log(chalk.green(`File created: ${filePath}`));
+  }
+};
+
+const initGitRepo = (projectPath, gitUsername, gitRepoName) => {
+  try {
+    execSync("git init", { cwd: projectPath, stdio: "inherit" });
+    execSync("git add .", { cwd: projectPath, stdio: "inherit" });
+    execSync('git commit -m "Initial commit"', {
+      cwd: projectPath,
+      stdio: "inherit",
+    });
+
+    const gitRepoUrl = `https://github.com/${gitUsername}/${gitRepoName}.git`;
+    execSync(`git remote add origin ${gitRepoUrl}`, {
+      cwd: projectPath,
+      stdio: "inherit",
+    });
+
+    execSync("git push -u origin master", {
+      cwd: projectPath,
+      stdio: "inherit",
+    });
+
+    console.log(chalk.green("Git repository initialized and first commit pushed to GitHub."));
+  } catch (error) {
+    console.error(chalk.red("Error initializing Git repository:", error.message));
+  }
+};
+
+const run = async () => {
   welcomeMessage();
 
   const answers = await promptUser();
-  const { projectName } = answers;
+  const projectPath = path.join(process.cwd(), answers.projectName);
 
-  const projectPath = path.join(process.cwd(), projectName);
-
-  if (fs.existsSync(projectPath)) {
-    console.error(
-      chalk.red(
-        `Folder ${projectName} already exists. Choose a different project name.`
-      )
-    );
-    process.exit(1);
+  if (!fs.existsSync(projectPath)) {
+    fs.mkdirSync(projectPath);
+    console.log(chalk.yellow(`Project folder created: ${projectPath}`));
   }
-
-  fs.mkdirSync(projectPath);
-  console.log(chalk.green(`Project folder created: ${projectPath}`));
 
   await createFolders(projectPath);
   await createFiles(projectPath, answers);
 
-  console.log(chalk.blue("Installing dependencies..."));
-  execSync(`cd ${projectPath} && npm install`, (err, stdout, stderr) => {
-    if (err) {
-      console.error(chalk.red(`Error installing dependencies: ${err.message}`));
-      return;
-    }
-    console.log(stdout);
-    console.error(stderr);
-    console.log(
-      chalk.green("Dependencies installed successfully. Happy Coding!")
-    );
-  });
-
   if (answers.initGit) {
-    await initializeGit(projectPath, answers);
+    initGitRepo(projectPath, answers.gitUsername, answers.gitRepoName);
   }
 
-  const displayFinalMessage = async () => {
+  const displayFinalMessage = async => {
     console.log(
-      chalk.cyan.bold(`
-    =====================================================
-    =                                                   =
-    =   "You are the distance between the last          =
-    =    metaphor of the verse and the full stop..."    =
-    =                ~ Gaurav Singh                     =
-    =                                                   =
-    =====================================================
+        chalk.cyan.bold(`
+    ==================================================
+    =                                                =
+    = Developed by: Gaurav Singh | @euclidstellar    =
+    =        Project setup complete 🚀               =
+    =                                                =
+    ==================================================
     `)
     );
-  };
-  await displayFinalMessage();
+   
+  }
+
+  displayFinalMessage();
 };
 
-main();
+run().catch((error) => {
+  console.error(chalk.red("An error occurred during setup:", error.message));
+});
