@@ -279,16 +279,17 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Hash password before saving the user
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
-    return next();
-  }
-
+// Encrypt password before saving the user
+userSchema.pre('save', async function(next) {
   try {
+    if (!this.isModified('password')) {
+      return next();
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(this.password, salt);
     this.password = hashedPassword;
+
     next();
   } catch (error) {
     next(error);
@@ -297,162 +298,121 @@ userSchema.pre('save', async function (next) {
 
 const User = mongoose.model('User', userSchema);
 
-module.exports = User;`;
-    files["src/controllers/authController.js"] = `const User = require('../models/model');
+module.exports = User;
+`;
+    files["src/routes/authRoutes.js"] = `const express = require('express');
+const router = express.Router();
 const bcrypt = require('bcryptjs');
-const { generateToken } = require('../utils/jwt');
+const User = require('../models/model');
+const { generateToken, verifyToken } = require('../utils/jwt');
 
-const register = async (req, res) => {
+// User registration route
+router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
 
   try {
-    const user = new User({
-      username,
-      email,
-      password
-    });
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ message: 'User already exists' });
+    }
 
-    const savedUser = await user.save();
+    // Create a new user
+    const newUser = new User({ username, email, password });
+    await newUser.save();
 
-    const token = generateToken(savedUser);
+    // Generate JWT token
+    const token = generateToken(newUser);
 
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: {
-        id: savedUser._id,
-        username: savedUser.username,
-        email: savedUser.email
-      }
-    });
+    res.status(201).json({ message: 'User registered successfully', token });
   } catch (error) {
-    console.error('Error while registering user:', error.message);
-    res.status(500).json({
-      message: 'Server error'
-    });
+    console.error('Error registering user:', error.message);
+    res.status(500).json({ message: 'Server error' });
   }
-};
+});
 
-const login = async (req, res) => {
-  const { username, password } = req.body;
+// User login route
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ username });
-
+    // Find user by email
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Generate JWT token
     const token = generateToken(user);
 
-    res.status(200).json({
-      message: 'User logged in successfully',
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email
-      }
-    });
+    res.status(200).json({ message: 'Login successful', token });
   } catch (error) {
-    console.error('Error while logging in:', error.message);
-    res.status(500).json({
-      message: 'Server error'
-    });
+    console.error('Error logging in:', error.message);
+    res.status(500).json({ message: 'Server error' });
   }
-};
+});
 
-module.exports = { register, login };`;
-    files["src/routes/authRoutes.js"] = `const express = require('express');
-const router = express.Router();
-const { register, login } = require('../controllers/authController');
+module.exports = router;
+`;
 
-// Register route
-router.post('/register', register);
-
-// Login route
-router.post('/login', login);
-
-module.exports = router;`;
     files["src/routes/index.js"] = `const express = require('express');
 const router = express.Router();
 const authRoutes = require('./authRoutes');
-const { verifyToken } = require('../utils/jwt');
-
-// Define your routes here
-router.get('/', (req, res) => {
-  res.send('Welcome to the API');
-});
 
 router.use('/auth', authRoutes);
 
-router.get('/protected', verifyToken, (req, res) => {
-  res.status(200).json({
-    message: 'Protected route accessed successfully',
-    user: req.user,
-  });
-});
-
-module.exports = router;`;
+module.exports = router;
+`;
   }
 
   for (const [fileName, content] of Object.entries(files)) {
     const filePath = path.join(projectPath, fileName);
-    fs.writeFileSync(filePath, content);
-    console.log(chalk.green(`File created: ${filePath}`));
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, content, "utf8");
+      console.log(chalk.yellow(`File created: ${filePath}`));
+    }
   }
 };
 
-const initGitRepo = (projectPath, gitUsername, gitRepoName) => {
-  try {
-    execSync("git init", { cwd: projectPath, stdio: "inherit" });
-    execSync("git add .", { cwd: projectPath, stdio: "inherit" });
-    execSync('git commit -m "Initial commit"', {
-      cwd: projectPath,
-      stdio: "inherit",
-    });
+const initGitRepository = (projectPath) => {
+  execSync("git init", { stdio: "inherit", cwd: projectPath });
+  execSync("git add .", { stdio: "inherit", cwd: projectPath });
+  execSync('git commit -m "Initial commit"', { stdio: "inherit", cwd: projectPath });
+};
 
-    const gitRepoUrl = `https://github.com/${gitUsername}/${gitRepoName}.git`;
-    execSync(`git remote add origin ${gitRepoUrl}`, {
-      cwd: projectPath,
-      stdio: "inherit",
-    });
-
-    execSync("git push -u origin master", {
-      cwd: projectPath,
-      stdio: "inherit",
-    });
-
-    console.log(chalk.green("Git repository initialized and first commit pushed to GitHub."));
-  } catch (error) {
-    console.error(chalk.red("Error initializing Git repository:", error.message));
-  }
+const installNodeModules = (projectPath) => {
+  console.log(chalk.blue("Installing node modules..."));
+  execSync("npm install", { stdio: "inherit", cwd: projectPath });
+  console.log(chalk.green("Node modules installed."));
 };
 
 const run = async () => {
   welcomeMessage();
-
   const answers = await promptUser();
   const projectPath = path.join(process.cwd(), answers.projectName);
 
-  if (!fs.existsSync(projectPath)) {
-    fs.mkdirSync(projectPath);
-    console.log(chalk.yellow(`Project folder created: ${projectPath}`));
+  if (fs.existsSync(projectPath)) {
+    console.error(chalk.red("Error: Project folder already exists"));
+    process.exit(1);
   }
 
+  fs.mkdirSync(projectPath, { recursive: true });
   await createFolders(projectPath);
   await createFiles(projectPath, answers);
 
   if (answers.initGit) {
-    initGitRepo(projectPath, answers.gitUsername, answers.gitRepoName);
+    initGitRepository(projectPath);
   }
 
+  installNodeModules(projectPath);
+
+ 
   const displayFinalMessage = async => {
     console.log(
         chalk.cyan.bold(`
@@ -471,5 +431,6 @@ const run = async () => {
 };
 
 run().catch((error) => {
-  console.error(chalk.red("An error occurred during setup:", error.message));
+  console.error(chalk.red("Error occurred during project setup:", error.message));
+  process.exit(1);
 });
